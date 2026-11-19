@@ -113,8 +113,14 @@ jobs:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
         run: |
           IMAGE="$REGISTRY/$PROJECT_NAME:${GITHUB_SHA}"
-          docker build --platform linux/amd64 --provenance=false -t "$IMAGE" .
-          docker push "$IMAGE"
+          # Tags are immutable, so a re-run of the same commit reuses the existing image.
+          if aws ecr describe-images --repository-name "$PROJECT_NAME" \
+               --image-ids imageTag="$GITHUB_SHA" > /dev/null 2>&1; then
+            echo "Image for this commit is already in ECR - skipping build."
+          else
+            docker build --platform linux/amd64 --provenance=false -t "$IMAGE" .
+            docker push "$IMAGE"
+          fi
           echo "uri=$IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Set up Terraform
