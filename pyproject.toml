@@ -1,0 +1,23 @@
+[project]
+name = "aws-uptime-monitor"
+version = "1.0.0"
+description = "Serverless uptime monitor on AWS (Lambda, API Gateway, EventBridge, CloudWatch) with GitHub Actions CI/CD"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["app"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["S310"]  # urllib URL schemes are validated in validate_url()
+
+[tool.ruff.lint.isort]
+known-first-party = ["handler", "checker"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]

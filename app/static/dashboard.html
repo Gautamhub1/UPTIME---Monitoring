@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uptime Monitor</title>
+<style>
+  :root {
+    --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --muted: #94a3b8;
+    --up: #22c55e; --down: #ef4444; --none: #475569; --border: #334155;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  header { padding: 28px 24px 8px; max-width: 980px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 26px; }
+  .sub { color: var(--muted); font-size: 14px; }
+  main { max-width: 980px; margin: 0 auto; padding: 16px 24px 40px; }
+  .overall {
+    display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 12px;
+    background: var(--card); border: 1px solid var(--border); margin-bottom: 18px; font-weight: 600;
+  }
+  .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--none); flex: none; }
+  .dot.up { background: var(--up); box-shadow: 0 0 10px var(--up); }
+  .dot.down { background: var(--down); box-shadow: 0 0 10px var(--down); }
+  .site {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 12px;
+  }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .url { font-weight: 600; word-break: break-all; flex: 1; min-width: 200px; }
+  .stats { display: flex; gap: 22px; color: var(--muted); font-size: 13px; }
+  .stats b { display: block; color: var(--text); font-size: 16px; }
+  .bars { display: flex; gap: 2px; height: 28px; margin-top: 12px; align-items: stretch; }
+  .bar { flex: 1; border-radius: 2px; background: var(--none); min-width: 2px; }
+  .bar.up { background: var(--up); }
+  .bar.down { background: var(--down); }
+  .legend { color: var(--muted); font-size: 12px; margin-top: 6px;
+            display: flex; justify-content: space-between; }
+  .error { color: var(--down); font-size: 13px; margin-top: 6px; }
+  .check { margin-top: 26px; background: var(--card); border: 1px solid var(--border);
+           border-radius: 12px; padding: 16px 18px; }
+  .check form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .check input { flex: 1; min-width: 220px; padding: 10px 12px; border-radius: 8px;
+                 border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .check button { padding: 10px 16px; border-radius: 8px; border: 0; background: #3b82f6;
+                  color: white; font-weight: 600; cursor: pointer; }
+  #check-result { margin-top: 10px; font-size: 14px; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; padding-bottom: 30px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Uptime Monitor</h1>
+  <div class="sub">Websites checked every 5 minutes &middot; serverless on AWS
+    &middot; <span id="updated">loading...</span></div>
+</header>
+
+<main>
+  <div class="overall"><span class="dot" id="overall-dot"></span><span id="overall-text">Loading status...</span></div>
+  <div id="sites"></div>
+
+  <section class="check">
+    <strong>Check any website now</strong>
+    <form id="check-form">
+      <input id="check-url" type="url" placeholder="https://example.com" required>
+      <button type="submit">Check</button>
+    </form>
+    <div id="check-result"></div>
+  </section>
+</main>
+
+<footer>Version <span id="version">-</span> &middot; Lambda + API Gateway + DynamoDB + EventBridge + CloudWatch</footer>
+
+<script>
+  // Builds DOM elements with textContent only (never innerHTML) so that data
+  // from the API can never inject HTML or scripts into the page.
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  }
+
+  function stat(label, value) {
+    const box = el("div");
+    box.appendChild(el("b", null, value));
+    box.appendChild(document.createTextNode(label));
+    return box;
+  }
+
+  function renderSite(site) {
+    const card = el("div", "site");
+    const row = el("div", "row");
+    const latest = site.latest;
+    row.appendChild(el("span", "dot " + (latest ? (latest.up ? "up" : "down") : "")));
+    row.appendChild(el("span", "url", site.url));
+
+    const stats = el("div", "stats");
+    stats.appendChild(stat("uptime 24h", site.uptime_24h === null ? "-" : site.uptime_24h + "%"));
+    stats.appendChild(stat("avg response", site.avg_latency_ms ? Math.round(site.avg_latency_ms) + " ms" : "-"));
+    stats.appendChild(stat("last status", latest && latest.status_code ? String(latest.status_code) : "-"));
+    row.appendChild(stats);
+    card.appendChild(row);
+
+    const bars = el("div", "bars");
+    const history = site.history.slice(-90);
+    for (let i = history.length; i < 90; i++) bars.appendChild(el("div", "bar"));
+    history.forEach(h => {
+      const bar = el("div", "bar " + (h.up ? "up" : "down"));
+      bar.title = h.t + " - " + (h.up ? "up" : "down") + " - " + Math.round(h.ms) + " ms";
+      bars.appendChild(bar);
+    });
+    card.appendChild(bars);
+
+    const legend = el("div", "legend");
+    legend.appendChild(el("span", null, "older"));
+    legend.appendChild(el("span", null, "last " + history.length + " checks (" + site.checks_24h + " in 24h)"));
+    legend.appendChild(el("span", null, "now"));
+    card.appendChild(legend);
+
+    if (latest && latest.error) card.appendChild(el("div", "error", "Last error: " + latest.error));
+    return card;
+  }
+
+  async function loadStatus() {
+    try {
+      const response = await fetch("/api/status", { cache: "no-store" });
+      const data = await response.json();
+      const container = document.getElementById("sites");
+      container.replaceChildren(...data.sites.map(renderSite));
+
+      const withData = data.sites.filter(s => s.latest);
+      const down = withData.filter(s => !s.latest.up);
+      const dot = document.getElementById("overall-dot");
+      const text = document.getElementById("overall-text");
+      if (withData.length === 0) {
+        dot.className = "dot";
+        text.textContent = "Waiting for the first scheduled check (runs every 5 minutes)...";
+      } else if (down.length === 0) {
+        dot.className = "dot up";
+        text.textContent = "All systems operational";
+      } else {
+        dot.className = "dot down";
+        text.textContent = down.length + " of " + withData.length + " sites are down";
+      }
+      document.getElementById("version").textContent = data.version;
+      document.getElementById("updated").textContent =
+        "updated " + new Date(data.generated_at).toLocaleTimeString();
+    } catch (err) {
+      document.getElementById("overall-text").textContent = "Could not load status: " + err;
+    }
+  }
+
+  document.getElementById("check-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const out = document.getElementById("check-result");
+    const url = document.getElementById("check-url").value;
+    out.textContent = "Checking...";
+    try {
+      const response = await fetch("/api/check?url=" + encodeURIComponent(url));
+      const data = await response.json();
+      if (!response.ok) { out.textContent = "Error: " + data.error; return; }
+      out.textContent = (data.up ? "UP" : "DOWN") + " - status " + (data.status_code ?? "none") +
+        " - " + Math.round(data.latency_ms) + " ms" + (data.error ? " - " + data.error : "");
+    } catch (err) {
+      out.textContent = "Error: " + err;
+    }
+  });
+
+  loadStatus();
+  setInterval(loadStatus, 60000);
+</script>
+</body>
+</html>
