@@ -1,6 +1,6 @@
 # AWS Serverless Uptime Monitor
 
-[![CI/CD](https://github.com/Gautamhub1/aws-uptime-monitor/actions/workflows/pipeline.yml/badge.svg)](https://github.com/Gautamhub1/aws-uptime-monitor/actions/workflows/pipeline.yml)
+[![CI/CD](https://github.com/Gautamhub1/UPTIME---Monitoring/actions/workflows/pipeline.yml/badge.svg)](https://github.com/Gautamhub1/UPTIME---Monitoring/actions/workflows/pipeline.yml)
 ![AWS](https://img.shields.io/badge/AWS-Lambda%20%7C%20API%20Gateway%20%7C%20DynamoDB-FF9900?logo=amazonaws&logoColor=white)
 ![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform&logoColor=white)
 ![Docker](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker&logoColor=white)
@@ -11,7 +11,9 @@
 >
 > Built with **Python, Docker, Terraform and GitHub Actions** on **AWS Lambda, API Gateway, DynamoDB, EventBridge, CloudWatch and SNS**. Every code change is tested and deployed automatically.
 
-**🔗 Live dashboard:** `https://<your-api-id>.execute-api.eu-north-1.amazonaws.com/` *(add your link here after the first deploy)*
+**🔗 Live dashboard:** **https://6co3e8qh6k.execute-api.eu-north-1.amazonaws.com/**
+
+**Health check:** [/health](https://6co3e8qh6k.execute-api.eu-north-1.amazonaws.com/health) · **Status API:** [/api/status](https://6co3e8qh6k.execute-api.eu-north-1.amazonaws.com/api/status)
 
 ---
 
@@ -68,6 +70,20 @@ After deploying, add your own screenshots here, for example:
 ### Green pipeline
 ![Pipeline run](docs/images/pipeline-run.png)
 -->
+
+### Real results from the live deployment
+Measured by this project in AWS `eu-north-1` (Stockholm). These are the first 24 hours of monitoring, read from `/api/status` on 21 November 2026.
+
+| Website | Checks (24 h) | Uptime | Avg. response time | What it shows |
+|---|---|---|---|---|
+| aws.amazon.com | 288 | **100%** | 187.4 ms | Healthy |
+| github.com | 288 | **100%** | 35.4 ms | Healthy, fastest |
+| www.wikipedia.org | 288 | **99.65%** | 81.9 ms | **A real short outage was detected** |
+| httpbin.org/status/503 | 288 | **0%** | – | Test site that fails on purpose (HTTP 503) to prove the alerting works |
+
+- **288 checks per site per day** = one every 5 minutes, fully automatic.
+- The CI/CD pipeline deploys a new version in about **1.5 minutes** (tests + deploy).
+- AWS cost: within the free tier.
 
 ---
 
@@ -147,7 +163,7 @@ You need an **AWS account** and a **GitHub account**. Setup takes about **1–2 
 5. In the top-right region menu of the console, select that region.
 
 ### Step 2: Put the code on GitHub
-1. Create a **public** repository named **`aws-uptime-monitor`**.
+1. Create a **public** repository (any name).
 2. Upload all files of this project, including the hidden **`.github`** folder.
 
 
